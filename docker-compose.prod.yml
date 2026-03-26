@@ -1,0 +1,37 @@
+# Production overrides
+# Usage: docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+#
+# No ports exposed — all traffic goes through your Caddy reverse proxy.
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+    networks:
+      - internal
+      - caddy
+
+  room:
+    environment:
+      - CORS_ORIGIN=https://draw.guneet.xyz
+    networks:
+      - internal
+      - caddy
+
+  storage:
+    networks:
+      - internal
+      - caddy
+
+  redis:
+    networks:
+      - internal
+
+networks:
+  internal:
+    driver: bridge
+  caddy:
+    external: true

@@ -27,3 +27,6 @@ dev-dist
 html
 meta*.json
 .claude
+
+# Self-hosted Docker Compose secrets
+.env

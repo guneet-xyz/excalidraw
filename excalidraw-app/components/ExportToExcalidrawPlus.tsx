@@ -1,5 +1,4 @@
 import React from "react";
-import { uploadBytes, ref } from "firebase/storage";
 import { nanoid } from "nanoid";
 
 import { trackEvent } from "@excalidraw/excalidraw/analytics";
@@ -27,7 +26,10 @@ import type {
 
 import { FILE_UPLOAD_MAX_BYTES } from "../app_constants";
 import { encodeFilesForUpload } from "../data/FileManager";
-import { loadFirebaseStorage, saveFilesToFirebase } from "../data/firebase";
+import { saveFilesToFirebase } from "../data/firebase";
+
+const HTTP_STORAGE_BACKEND_URL =
+  import.meta.env.VITE_APP_HTTP_STORAGE_BACKEND_URL;
 
 export const exportToExcalidrawPlus = async (
   elements: readonly NonDeletedExcalidrawElement[],
@@ -35,8 +37,6 @@ export const exportToExcalidrawPlus = async (
   files: BinaryFiles,
   name: string,
 ) => {
-  const storage = await loadFirebaseStorage();
-
   const id = `${nanoid(12)}`;
 
   const encryptionKey = (await generateEncryptionKey())!;
@@ -52,13 +52,20 @@ export const exportToExcalidrawPlus = async (
     },
   );
 
-  const storageRef = ref(storage, `/migrations/scenes/${id}`);
-  await uploadBytes(storageRef, blob, {
-    customMetadata: {
-      data: JSON.stringify({ version: 2, name }),
-      created: Date.now().toString(),
+  // Flatten path into a single key (no slashes)
+  const storageKey = `migrations__scenes__${id}`;
+  const response = await fetch(
+    `${HTTP_STORAGE_BACKEND_URL}/files/${storageKey}`,
+    {
+      method: "PUT",
+      headers: { "Content-Type": "application/octet-stream" },
+      body: blob,
     },
-  });
+  );
+
+  if (!response.ok) {
+    throw new Error(`Failed to upload scene: HTTP ${response.status}`);
+  }
 
   const filesMap = new Map<FileId, BinaryFileData>();
   for (const element of elements) {
@@ -80,11 +87,12 @@ export const exportToExcalidrawPlus = async (
     });
   }
 
-  window.open(
-    `${
-      import.meta.env.VITE_APP_PLUS_APP
-    }/import?excalidraw=${id},${encryptionKey}`,
-  );
+  // For self-hosted, VITE_APP_PLUS_APP is empty, so this feature is effectively disabled.
+  // But if someone configures it, it will still work.
+  const plusApp = import.meta.env.VITE_APP_PLUS_APP;
+  if (plusApp) {
+    window.open(`${plusApp}/import?excalidraw=${id},${encryptionKey}`);
+  }
 };
 
 export const ExportToExcalidrawPlus: React.FC<{

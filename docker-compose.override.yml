@@ -1,0 +1,24 @@
+# Development overrides — automatically loaded by `docker compose up`
+# Exposes ports directly for localhost access
+# Builds frontend with VITE_MODE=development → loads .env.development (localhost URLs)
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NODE_ENV=production
+        - VITE_MODE=development
+    ports:
+      - "3333:80"
+
+  room:
+    ports:
+      - "3002:80"
+    environment:
+      - CORS_ORIGIN=http://localhost:3333
+
+  storage:
+    ports:
+      - "8080:8080"

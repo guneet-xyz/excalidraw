@@ -1,23 +1,70 @@
+# Base docker-compose configuration for self-hosted Excalidraw
+# Dev:  docker compose up --build
+# Prod: docker compose -f docker-compose.yml -f docker-compose.prod.yml up --build -d
+
 services:
-  excalidraw:
+  # ─── Excalidraw Frontend ────────────────────────────────────────────
+  # Official excalidraw built from source with custom .env.production/.env.development
+  # Serves the SPA via nginx on port 80 (internal)
+  frontend:
     build:
       context: .
-      args:
-        - NODE_ENV=development
-    container_name: excalidraw
-    ports:
-      - "3000:80"
-    restart: on-failure
-    stdin_open: true
+      dockerfile: Dockerfile
+    container_name: excalidraw-frontend
+    restart: unless-stopped
     healthcheck:
-      disable: true
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://localhost"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+    depends_on:
+      storage:
+        condition: service_started
+      room:
+        condition: service_started
+
+  # ─── Collaboration Server (WebSocket) ───────────────────────────────
+  # excalidraw-room: relays encrypted collaboration data between clients
+  # Stateless, in-memory only (by design — E2E encrypted)
+  room:
+    image: excalidraw/excalidraw-room:sha-49bf529
+    container_name: excalidraw-room
+    restart: unless-stopped
     environment:
-      - NODE_ENV=development
+      - PORT=80
+
+  # ─── Storage Backend (Link Sharing API) ─────────────────────────────
+  # Handles POST/GET for shared drawing links
+  # Routes: POST /api/v2/scenes/ → returns {id}, GET /api/v2/scenes/:id → returns binary
+  storage:
+    image: alswl/excalidraw-storage-backend:v2023.11.11
+    container_name: excalidraw-storage
+    restart: unless-stopped
+    environment:
+      - PORT=8080
+      - STORAGE_URI=redis://redis:6379
+      - LOG_LEVEL=warn
+      - BODY_LIMIT=50mb
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  # ─── Redis ──────────────────────────────────────────────────────────
+  # Persistent storage for shared drawings via Keyv (@keyv/redis)
+  # AOF (append-only file) ensures data survives container restarts
+  redis:
+    image: redis:7-alpine
+    container_name: excalidraw-redis
+    restart: unless-stopped
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
-      - ./:/opt/node_app/app:delegated
-      - ./package.json:/opt/node_app/package.json
-      - ./yarn.lock:/opt/node_app/yarn.lock
-      - notused:/opt/node_app/app/node_modules
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 volumes:
-  notused:
+  redis-data:
+    driver: local

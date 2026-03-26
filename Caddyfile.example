@@ -1,0 +1,28 @@
+# Caddyfile snippet for self-hosted Excalidraw
+# Add this to your existing Caddy configuration.
+#
+# Caddy automatically handles:
+# - HTTPS certificates via Let's Encrypt
+# - WebSocket upgrades (no special config needed)
+# - HTTP/2
+#
+# Make sure the containers are on the "caddy" Docker network
+# (see docker-compose.prod.yml)
+
+draw.guneet.xyz {
+	# WebSocket collaboration server
+	# Must be matched before the catch-all frontend handler
+	handle /socket.io/* {
+		reverse_proxy excalidraw-room:80
+	}
+
+	# Storage API for link sharing
+	handle /api/v2/* {
+		reverse_proxy excalidraw-storage:8080
+	}
+
+	# Excalidraw frontend (catch-all)
+	handle {
+		reverse_proxy excalidraw-frontend:80
+	}
+}
