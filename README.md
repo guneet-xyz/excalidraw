@@ -80,6 +80,19 @@ The app hosted at [excalidraw.com](https://excalidraw.com) is a minimal showcase
 
 We'll be adding these features as drop-in plugins for the npm package in the future.
 
+## Self-Hosting
+
+This fork includes everything you need to self-host Excalidraw with collaboration and link sharing:
+
+```bash
+git clone https://github.com/guneet-xyz/excalidraw.git
+cd excalidraw
+docker compose up --build
+# Open http://localhost:3333
+```
+
+No Firebase or third-party services required. See **[SELF-HOSTING.md](SELF-HOSTING.md)** for production deployment, configuration, and architecture details.
+
 ## Quick start
 
 **Note:** following instructions are for installing the Excalidraw [npm package](https://www.npmjs.com/package/@excalidraw/excalidraw) when integrating Excalidraw into your own app. To run the repository locally for development, please refer to our [Development Guide](https://docs.excalidraw.com/docs/introduction/development).
